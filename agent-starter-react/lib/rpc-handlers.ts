@@ -1,19 +1,27 @@
-import { LocalParticipant, RpcInvocationData } from 'livekit-client';
+import type { RpcInvocationData } from 'livekit-client';
+import { LocalParticipant } from 'livekit-client';
 import type { Appointment, ConversationSummary } from './types';
 
 interface RpcHandlerCallbacks {
   onAppointmentBooked?: (appointment: Appointment) => void;
-  onAppointmentCancelled?: (data: { appointment_id: string; date: string; time: string }) => void;
+  onAppointmentCancelled?: (data: {
+    appointment_id: string;
+    date: string;
+    time: string;
+    user_name: string;
+    display: string;
+  }) => void;
   onAppointmentModified?: (data: {
     appointment_id: string;
     old_date: string;
     old_time: string;
     new_date: string;
     new_time: string;
+    user_name: string;
     display: string;
   }) => void;
   onConversationSummary?: (summary: ConversationSummary) => void;
-  onToolCallUpdate?: (data: any) => void;
+  onToolCallUpdate?: (data: unknown) => void;
 }
 
 export function registerRpcHandlers(
@@ -49,24 +57,21 @@ export function registerRpcHandlers(
   });
 
   // Handle appointment cancelled
-  localParticipant.registerRpcMethod(
-    'appointment_cancelled',
-    async (data: RpcInvocationData) => {
-      try {
-        const payload = JSON.parse(data.payload);
-        console.log('Appointment cancelled:', payload);
+  localParticipant.registerRpcMethod('appointment_cancelled', async (data: RpcInvocationData) => {
+    try {
+      const payload = JSON.parse(data.payload);
+      console.log('Appointment cancelled:', payload);
 
-        if (callbacks.onAppointmentCancelled) {
-          callbacks.onAppointmentCancelled(payload);
-        }
-
-        return JSON.stringify({ status: 'received', success: true });
-      } catch (error) {
-        console.error('Error handling appointment_cancelled RPC:', error);
-        return JSON.stringify({ status: 'error', message: String(error) });
+      if (callbacks.onAppointmentCancelled) {
+        callbacks.onAppointmentCancelled(payload);
       }
+
+      return JSON.stringify({ status: 'received', success: true });
+    } catch (error) {
+      console.error('Error handling appointment_cancelled RPC:', error);
+      return JSON.stringify({ status: 'error', message: String(error) });
     }
-  );
+  });
 
   // Handle appointment modified
   localParticipant.registerRpcMethod('appointment_modified', async (data: RpcInvocationData) => {

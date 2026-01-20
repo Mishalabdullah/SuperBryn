@@ -2,20 +2,20 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import { useSessionContext, useSessionMessages } from '@livekit/components-react';
 import { toast } from 'sonner';
+import { useSessionContext, useSessionMessages } from '@livekit/components-react';
 import type { AppConfig } from '@/app-config';
 import {
   AgentControlBar,
   type AgentControlBarControls,
 } from '@/components/agents-ui/agent-control-bar';
+import { AppointmentList } from '@/components/app/appointment-card';
 import { ChatTranscript } from '@/components/app/chat-transcript';
+import { SummaryModal } from '@/components/app/summary-modal';
 import { TileLayout } from '@/components/app/tile-layout';
 import { ToolCallDisplay } from '@/components/app/tool-call-display';
-import { AppointmentList } from '@/components/app/appointment-card';
-import { SummaryModal } from '@/components/app/summary-modal';
-import { useSessionState } from '@/lib/session-state';
 import { registerRpcHandlers, unregisterRpcHandlers } from '@/lib/rpc-handlers';
+import { useSessionState } from '@/lib/session-state';
 import { cn } from '@/lib/shadcn/utils';
 import { Shimmer } from '../ai-elements/shimmer';
 
@@ -186,11 +186,13 @@ export const SessionView = ({
 
       {/* Appointments Sidebar */}
       {sessionState.appointments.length > 0 && (
-        <div className="fixed right-4 top-20 z-40 w-80 md:w-96 max-h-[calc(100vh-8rem)] overflow-y-auto custom-scrollbar">
-          <div className="rounded-lg border border-border bg-card p-4">
-            <div className="flex items-center justify-between mb-4">
+        <div className="custom-scrollbar fixed top-20 right-4 z-40 max-h-[calc(100vh-8rem)] w-80 overflow-y-auto md:w-96">
+          <div className="border-border bg-card rounded-lg border p-4">
+            <div className="mb-4 flex items-center justify-between">
               <h3 className="text-sm font-semibold">Appointments</h3>
-              <span className="text-xs text-muted-foreground">{sessionState.appointments.length}</span>
+              <span className="text-muted-foreground text-xs">
+                {sessionState.appointments.length}
+              </span>
             </div>
             <AppointmentList appointments={sessionState.appointments} />
           </div>
@@ -198,7 +200,7 @@ export const SessionView = ({
       )}
 
       {/* Tool Calls Display */}
-      <div className="fixed left-4 top-4 z-40 w-80">
+      <div className="fixed top-4 left-4 z-40 w-80">
         <ToolCallDisplay toolCalls={sessionState.toolCalls} />
       </div>
 
@@ -228,11 +230,9 @@ export const SessionView = ({
                 {...SHIMMER_MOTION_PROPS}
                 className="pointer-events-none mx-auto block w-full max-w-2xl pb-4 text-center"
               >
-                <div className="border border-border rounded-lg px-6 py-4 bg-card">
-                  <p className="text-sm font-medium text-foreground">
-                    Agent is listening...
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
+                <div className="border-border bg-card rounded-lg border px-6 py-4">
+                  <p className="text-foreground text-sm font-medium">Agent is listening...</p>
+                  <p className="text-muted-foreground mt-1 text-xs">
                     Ask to book, modify, or cancel an appointment
                   </p>
                 </div>

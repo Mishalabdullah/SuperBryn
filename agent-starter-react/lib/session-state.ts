@@ -1,5 +1,11 @@
-import { useState, useCallback } from 'react';
-import type { SessionState, Appointment, ToolCall, ConversationSummary, UserProfile } from './types';
+import { useCallback, useState } from 'react';
+import type {
+  Appointment,
+  ConversationSummary,
+  SessionState,
+  ToolCall,
+  UserProfile,
+} from './types';
 
 export function useSessionState() {
   const [state, setState] = useState<SessionState>({
@@ -46,9 +52,7 @@ export function useSessionState() {
   const updateToolCall = useCallback((toolCallId: string, updates: Partial<ToolCall>) => {
     setState((prev) => ({
       ...prev,
-      toolCalls: prev.toolCalls.map((tc) =>
-        tc.id === toolCallId ? { ...tc, ...updates } : tc
-      ),
+      toolCalls: prev.toolCalls.map((tc) => (tc.id === toolCallId ? { ...tc, ...updates } : tc)),
     }));
   }, []);
 

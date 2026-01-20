@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 function WelcomeImage() {
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-center w-16 h-16 rounded-lg border border-border bg-card">
+      <div className="border-border bg-card flex h-16 w-16 items-center justify-center rounded-lg border">
         <svg
           width="32"
           height="32"
@@ -44,33 +44,36 @@ export const WelcomeView = ({
   ref,
 }: React.ComponentProps<'div'> & WelcomeViewProps) => {
   return (
-    <div ref={ref} className="min-h-screen flex flex-col items-center justify-center px-4 pt-20 relative z-10">
-      <section className="bg-background flex flex-col items-center justify-center text-center max-w-3xl">
+    <div
+      ref={ref}
+      className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-20"
+    >
+      <section className="bg-background flex max-w-3xl flex-col items-center justify-center text-center">
         <WelcomeImage />
 
-        <h1 className="text-foreground text-4xl md:text-5xl font-bold mb-4 tracking-tight">
+        <h1 className="text-foreground mb-4 text-4xl font-bold tracking-tight md:text-5xl">
           AI Appointment Assistant
         </h1>
 
-        <p className="text-muted-foreground max-w-xl text-lg md:text-xl leading-relaxed mb-12">
+        <p className="text-muted-foreground mb-12 max-w-xl text-lg leading-relaxed md:text-xl">
           Book, modify, and cancel appointments with natural voice conversation.
         </p>
 
         <Button
           size="lg"
           onClick={onStartCall}
-          className="relative z-20 px-8 py-4 text-base font-semibold rounded-lg bg-red-600 hover:bg-red-700 text-white shadow-lg transition-all"
+          className="relative z-20 rounded-lg bg-red-600 px-8 py-4 text-base font-semibold text-white shadow-lg transition-all hover:bg-red-700"
         >
           {startButtonText}
         </Button>
       </section>
 
-      <div className="fixed bottom-8 left-0 flex w-full items-center justify-center px-4 z-10">
-        <div className="flex items-center gap-6 text-sm text-muted-foreground">
+      <div className="fixed bottom-8 left-0 z-10 flex w-full items-center justify-center px-4">
+        <div className="text-muted-foreground flex items-center gap-6 text-sm">
           <span>Secure</span>
-          <span className="w-1 h-1 rounded-full bg-border"></span>
+          <span className="bg-border h-1 w-1 rounded-full"></span>
           <span>Fast</span>
-          <span className="w-1 h-1 rounded-full bg-border"></span>
+          <span className="bg-border h-1 w-1 rounded-full"></span>
           <span>Reliable</span>
         </div>
       </div>

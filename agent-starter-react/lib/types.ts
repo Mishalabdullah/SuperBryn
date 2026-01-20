@@ -18,7 +18,7 @@ export interface ToolCall {
   name: string;
   status: 'pending' | 'in_progress' | 'completed' | 'error';
   timestamp: number;
-  result?: any;
+  result?: unknown;
   error?: string;
 }
 
@@ -51,6 +51,11 @@ export interface SessionState {
 }
 
 export interface RPCEvent {
-  type: 'appointment_booked' | 'appointment_cancelled' | 'appointment_modified' | 'conversation_summary' | 'tool_call_update';
-  data: any;
+  type:
+    | 'appointment_booked'
+    | 'appointment_cancelled'
+    | 'appointment_modified'
+    | 'conversation_summary'
+    | 'tool_call_update';
+  data: unknown;
 }

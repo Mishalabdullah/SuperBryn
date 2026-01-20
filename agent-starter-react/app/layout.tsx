@@ -71,16 +71,18 @@ export default async function RootLayout({ children }: RootLayoutProps) {
           enableSystem
           disableTransitionOnChange
         >
-          <header className="fixed top-0 left-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-sm">
-            <div className="flex flex-row items-center justify-between max-w-7xl mx-auto px-6 py-4">
+          <header className="border-border bg-background/80 fixed top-0 left-0 z-50 w-full border-b backdrop-blur-sm">
+            <div className="mx-auto flex max-w-7xl flex-row items-center justify-between px-6 py-4">
               <div className="flex items-center gap-2">
-                <div className="flex items-center justify-center w-8 h-8 rounded-md bg-primary">
-                  <span className="text-primary-foreground font-bold text-sm">S</span>
+                <div className="bg-primary flex h-8 w-8 items-center justify-center rounded-md">
+                  <span className="text-primary-foreground text-sm font-bold">S</span>
                 </div>
-                <span className="text-foreground font-semibold text-lg tracking-tight">{companyName}</span>
+                <span className="text-foreground text-lg font-semibold tracking-tight">
+                  {companyName}
+                </span>
               </div>
               <div className="flex items-center gap-4">
-                <span className="hidden md:block text-muted-foreground text-sm">
+                <span className="text-muted-foreground hidden text-sm md:block">
                   Voice AI Assistant
                 </span>
               </div>

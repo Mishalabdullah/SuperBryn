@@ -662,11 +662,18 @@ Remember: Your goal is to make appointment booking easy and pleasant for users."
                 recent_appointments = await self.db.get_user_appointments(
                     self.current_user["contact_number"]
                 )
+                # Send complete appointment data to frontend
                 appointments_discussed = [
                     {
-                        "date": appt["appointment_date"],
-                        "time": appt["appointment_time"],
+                        "id": str(appt["id"]),
+                        "user_name": appt["user_name"],
+                        "contact_number": appt["contact_number"],
+                        "appointment_date": appt["appointment_date"],
+                        "appointment_time": appt["appointment_time"],
                         "status": appt["status"],
+                        "created_at": str(appt.get("created_at", "")),
+                        "updated_at": str(appt.get("updated_at", "")),
+                        "notes": appt.get("notes", ""),
                     }
                     for appt in recent_appointments[:3]  # Last 3 appointments
                 ]

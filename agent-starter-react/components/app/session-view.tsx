@@ -157,6 +157,19 @@ export const SessionView = ({
         console.log('Conversation summary received via RPC:', summary);
         setSummary(summary);
         setShowSummary(true);
+
+        // Show toast notification with cost if available
+        if (summary.costs && summary.costs.total_cost > 0) {
+          toast.info('Call Summary Ready', {
+            description: `Total cost: $${summary.costs.total_cost.toFixed(6)}`,
+            duration: 5000,
+          });
+        } else {
+          toast.info('Call Summary Ready', {
+            description: 'View your conversation summary',
+            duration: 5000,
+          });
+        }
       },
       onToolCallUpdate: (data) => {
         console.log('Tool call update via RPC:', data);

@@ -174,18 +174,48 @@ Generated: ${new Date().toLocaleString()}
                         ${summary.costs.llm_cost.toFixed(6)}
                       </span>
                     </div>
+                    {summary.costs.total_tokens && summary.costs.total_tokens > 0 && (
+                      <div className="text-muted-foreground ml-4 flex justify-between text-xs">
+                        <span>
+                          {summary.costs.prompt_tokens?.toLocaleString()} prompt +{' '}
+                          {summary.costs.completion_tokens?.toLocaleString()} completion
+                          {summary.costs.prompt_cached_tokens &&
+                            summary.costs.prompt_cached_tokens > 0 && (
+                              <span className="text-green-600">
+                                {' '}
+                                ({summary.costs.prompt_cached_tokens} cached)
+                              </span>
+                            )}
+                        </span>
+                        <span>{summary.costs.total_tokens.toLocaleString()} tokens</span>
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">TTS</span>
                       <span className="font-mono text-sm">
                         ${summary.costs.tts_cost.toFixed(6)}
                       </span>
                     </div>
+                    {summary.costs.tts_characters && summary.costs.tts_characters > 0 && (
+                      <div className="text-muted-foreground ml-4 flex justify-between text-xs">
+                        <span>{summary.costs.tts_characters.toLocaleString()} characters</span>
+                        {summary.costs.tts_audio_duration && (
+                          <span>{summary.costs.tts_audio_duration.toFixed(1)}s audio</span>
+                        )}
+                      </div>
+                    )}
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">STT</span>
                       <span className="font-mono text-sm">
                         ${summary.costs.stt_cost.toFixed(6)}
                       </span>
                     </div>
+                    {summary.costs.stt_audio_duration && summary.costs.stt_audio_duration > 0 && (
+                      <div className="text-muted-foreground ml-4 flex justify-between text-xs">
+                        <span>{summary.costs.stt_audio_duration.toFixed(1)}s audio</span>
+                        <span>{(summary.costs.stt_audio_duration / 60).toFixed(2)} min</span>
+                      </div>
+                    )}
                     <div className="border-border mt-2 flex justify-between border-t pt-2 text-sm font-medium">
                       <span>Total</span>
                       <span className="font-mono">${summary.costs.total_cost.toFixed(6)}</span>

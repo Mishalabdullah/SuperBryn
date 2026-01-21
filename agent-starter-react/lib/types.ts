@@ -34,6 +34,14 @@ export interface CostBreakdown {
   tts_cost: number;
   stt_cost: number;
   total_cost: number;
+  // Optional detailed metrics
+  completion_tokens?: number;
+  prompt_tokens?: number;
+  prompt_cached_tokens?: number;
+  total_tokens?: number;
+  tts_characters?: number;
+  tts_audio_duration?: number;
+  stt_audio_duration?: number;
 }
 
 export interface UserProfile {

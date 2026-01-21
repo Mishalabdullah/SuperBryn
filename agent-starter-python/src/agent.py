@@ -6,7 +6,9 @@ from datetime import datetime
 from dotenv import load_dotenv
 
 # Agent version for deployment tracking
-AGENT_VERSION = "v1.1.0-slots-fix"  # Updated: Fixed slot availability and lunch break
+AGENT_VERSION = (
+    "v1.2.0-cost-tracking"  # Updated: Added real-time cost tracking with UsageCollector
+)
 from livekit import rtc
 from livekit.agents import (
     Agent,
@@ -14,11 +16,13 @@ from livekit.agents import (
     AgentSession,
     JobContext,
     JobProcess,
+    MetricsCollectedEvent,
     RunContext,
     cli,
     function_tool,
     get_job_context,
     inference,
+    metrics,
     room_io,
 )
 from livekit.plugins import noise_cancellation, silero, tavus
@@ -94,11 +98,9 @@ Remember: Your goal is to make appointment booking easy and pleasant for users."
         self.config = AppConfig()
         self.conversation_history = []
         self.current_user = None
-        self.session_metrics = {
-            "tokens_used": 0,
-            "tts_chars": 0,
-            "stt_seconds": 0,
-        }
+        self.usage_collector: metrics.UsageCollector | None = (
+            None  # Will be set when session starts
+        )
 
     @function_tool()
     async def identify_user(
@@ -715,12 +717,50 @@ Remember: Your goal is to make appointment booking easy and pleasant for users."
             summary += "Have a great day!"
             logger.info(f"Generated summary: {summary}")
 
-            # Calculate costs (bonus feature)
-            costs = calculate_costs(
-                tokens_used=self.session_metrics.get("tokens_used", 0),
-                tts_chars=self.session_metrics.get("tts_chars", 0),
-                stt_seconds=self.session_metrics.get("stt_seconds", 0),
-            )
+            # Calculate costs from actual usage metrics
+            costs = {
+                "llm_cost": 0.0,
+                "tts_cost": 0.0,
+                "stt_cost": 0.0,
+                "total_cost": 0.0,
+            }
+
+            if self.usage_collector:
+                usage_summary = self.usage_collector.get_summary()
+                logger.info(f"Usage summary: {usage_summary}")
+
+                # Calculate costs based on actual usage
+                # OpenAI GPT-4o-mini: $0.150/1M input tokens, $0.600/1M output tokens
+                prompt_tokens = usage_summary.llm_prompt_tokens
+                completion_tokens = usage_summary.llm_completion_tokens
+                total_tokens = prompt_tokens + completion_tokens
+                llm_cost = (prompt_tokens * 0.15 / 1_000_000) + (
+                    completion_tokens * 0.60 / 1_000_000
+                )
+
+                # Cartesia TTS: ~$0.015/1K characters
+                tts_chars = usage_summary.tts_characters_count
+                tts_cost = tts_chars * 0.015 / 1000
+
+                # Deepgram STT: ~$0.0043/minute
+                stt_audio_duration = usage_summary.stt_audio_duration  # in seconds
+                stt_cost = (stt_audio_duration / 60) * 0.0043
+
+                costs = {
+                    "llm_cost": round(llm_cost, 6),
+                    "tts_cost": round(tts_cost, 6),
+                    "stt_cost": round(stt_cost, 6),
+                    "total_cost": round(llm_cost + tts_cost + stt_cost, 6),
+                    "completion_tokens": completion_tokens,
+                    "prompt_tokens": prompt_tokens,
+                    "prompt_cached_tokens": usage_summary.llm_prompt_cached_tokens,
+                    "total_tokens": total_tokens,
+                    "tts_characters": tts_chars,
+                    "tts_audio_duration": round(usage_summary.tts_audio_duration, 2),
+                    "stt_audio_duration": round(stt_audio_duration, 2),
+                }
+            else:
+                logger.warning("Usage collector not available, costs will be zero")
 
             # Save summary to database
             session_id = get_job_context().room.name
@@ -844,9 +884,22 @@ async def my_agent(ctx: JobContext):
     else:
         logger.warning("Tavus credentials not configured - running without avatar")
 
+    # Initialize usage collector for cost tracking
+    usage_collector = metrics.UsageCollector()
+
+    # Create agent instance
+    assistant = AppointmentAssistant()
+    assistant.usage_collector = usage_collector  # Pass usage collector to agent
+
+    # Subscribe to metrics events for cost tracking
+    @session.on("metrics_collected")
+    def _on_metrics_collected(ev: MetricsCollectedEvent):
+        usage_collector.collect(ev.metrics)
+        logger.debug(f"Collected metrics: {ev.metrics}")
+
     # Start the session
     await session.start(
-        agent=AppointmentAssistant(),
+        agent=assistant,
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(

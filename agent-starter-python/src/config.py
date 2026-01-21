@@ -96,7 +96,7 @@ class AppConfig:
             self.business_hours = {"start": "09:00", "end": "17:00"}
 
     def get_available_slots(
-        self, from_date: datetime = None, days: int = None
+        self, from_date: datetime | None = None, days: int | None = None
     ) -> List[Dict[str, str]]:
         """
         Generate available slots for next N days.
@@ -108,16 +108,16 @@ class AppConfig:
         Returns:
             List of slot dictionaries with 'date', 'time', and 'datetime' fields
         """
-        if from_date is None:
-            from_date = datetime.now()
-
-        if days is None:
-            days = self.days_ahead
+        # Set defaults
+        actual_from_date = from_date if from_date is not None else datetime.now()
+        actual_days = days if days is not None else self.days_ahead
 
         slots = []
-        current_date = from_date.date()
+        current_date = actual_from_date.date()
+        current_time = actual_from_date.time()
+        today = datetime.now().date()
 
-        for day_offset in range(days):
+        for day_offset in range(actual_days):
             check_date = current_date + timedelta(days=day_offset)
 
             # Skip excluded weekdays (0=Monday, 6=Sunday)
@@ -126,6 +126,17 @@ class AppConfig:
 
             # Add all available time slots for this day
             for time_str in self.available_times:
+                # If this is today, skip slots that have already passed
+                if check_date == today:
+                    slot_time = datetime.strptime(time_str, "%H:%M").time()
+                    # Add buffer of 1 hour for booking
+                    current_hour_plus_buffer = (
+                        datetime.combine(today, current_time) + timedelta(hours=1)
+                    ).time()
+                    if slot_time < current_hour_plus_buffer:
+                        logger.debug(f"Skipping past slot: {time_str} on {check_date}")
+                        continue
+
                 slots.append(
                     {
                         "date": check_date.strftime("%Y-%m-%d"),
@@ -136,7 +147,7 @@ class AppConfig:
                     }
                 )
 
-        logger.info(f"Generated {len(slots)} available slots")
+        logger.info(f"Generated {len(slots)} available slots (filtered out past times)")
         return slots
 
     def is_valid_slot(self, slot_date: str, slot_time: str) -> bool:
@@ -193,7 +204,9 @@ class AppConfig:
         except Exception:
             return time_24hr
 
-    def get_slot_suggestions(self, preferred_date: str = None) -> List[Dict[str, str]]:
+    def get_slot_suggestions(
+        self, preferred_date: str | None = None
+    ) -> List[Dict[str, str]]:
         """
         Get suggested slots, optionally filtered by preferred date.
 
@@ -205,24 +218,29 @@ class AppConfig:
         """
         all_slots = self.get_available_slots()
 
-        if preferred_date:
+        if preferred_date and preferred_date.strip():
             # Try to parse preferred date
             try:
-                if preferred_date.lower() == "today":
+                preferred_lower = preferred_date.lower().strip()
+                if preferred_lower == "today":
                     target_date = datetime.now().date()
-                elif preferred_date.lower() == "tomorrow":
+                elif preferred_lower == "tomorrow":
                     target_date = (datetime.now() + timedelta(days=1)).date()
                 else:
+                    # Try parsing as YYYY-MM-DD
                     target_date = datetime.strptime(preferred_date, "%Y-%m-%d").date()
 
                 # Filter slots by date
                 filtered_slots = [
                     slot for slot in all_slots if slot["date"] == str(target_date)
                 ]
-                return filtered_slots if filtered_slots else all_slots[:10]
-            except Exception:
-                # Return first 10 slots if parsing fails
-                return all_slots[:10]
+                logger.info(f"Found {len(filtered_slots)} slots for {target_date}")
+                # Return filtered slots if found, otherwise return next 20 available
+                return filtered_slots if filtered_slots else all_slots[:20]
+            except Exception as e:
+                logger.warning(f"Could not parse date '{preferred_date}': {e}")
+                # Return first 20 slots if parsing fails
+                return all_slots[:20]
 
-        # Return next 10 available slots
-        return all_slots[:10]
+        # Return next 20 available slots (increased from 10 for better visibility)
+        return all_slots[:20]

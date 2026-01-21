@@ -4,6 +4,9 @@ import os
 from datetime import datetime
 
 from dotenv import load_dotenv
+
+# Agent version for deployment tracking
+AGENT_VERSION = "v1.1.0-slots-fix"  # Updated: Fixed slot availability and lunch break
 from livekit import rtc
 from livekit.agents import (
     Agent,
@@ -180,18 +183,55 @@ Remember: Your goal is to make appointment booking easy and pleasant for users."
         try:
             logger.info(f"Fetching slots for date: {preferred_date}")
 
-            # Get suggested slots based on preferred date
-            slots = self.config.get_slot_suggestions(preferred_date)
+            # Get all available slots from config
+            all_slots = self.config.get_available_slots()
 
-            if not slots:
-                return {
-                    "success": False,
-                    "message": "I don't have any available slots for that date. Would you like to try a different day?",
-                }
+            # Filter out already booked slots by checking database
+            available_slots = []
+            for slot in all_slots:
+                slot_date = datetime.strptime(slot["date"], "%Y-%m-%d").date()
+                slot_time = datetime.strptime(slot["time"], "%H:%M").time()
+                is_available, _ = await self.db.check_slot_available(
+                    slot_date, slot_time
+                )
+                if is_available:
+                    available_slots.append(slot)
 
-            # Format slots for voice response
+            logger.info(
+                f"After filtering booked slots: {len(available_slots)} available"
+            )
+
+            # Filter by preferred date if provided
+            filtered_slots = available_slots
+            if preferred_date and preferred_date.strip():
+                parsed_date = parse_date(preferred_date)
+                if parsed_date:
+                    date_str = parsed_date.strftime("%Y-%m-%d")
+                    filtered_slots = [
+                        s for s in available_slots if s["date"] == date_str
+                    ]
+                    logger.info(
+                        f"Filtered to {len(filtered_slots)} slots for date {date_str}"
+                    )
+
+            # If no slots found for specific date, return next available slots
+            if not filtered_slots:
+                if preferred_date:
+                    logger.warning(
+                        f"No slots found for {preferred_date}, returning next available"
+                    )
+                    filtered_slots = available_slots[:15]  # Return next 15 slots
+                else:
+                    return {
+                        "success": False,
+                        "message": "I don't have any available slots at the moment. Please check back later.",
+                    }
+
+            # Format slots for voice response - return up to 20 slots
             slot_list = []
-            for slot in slots[:5]:  # Limit to first 5 for voice
+            for slot in filtered_slots[
+                :20
+            ]:  # Return up to 20 slots for better availability
                 slot_list.append(
                     {
                         "date": slot["date"],
@@ -203,8 +243,8 @@ Remember: Your goal is to make appointment booking easy and pleasant for users."
             return {
                 "success": True,
                 "slots": slot_list,
-                "total_available": len(slots),
-                "message": f"I have {len(slot_list)} available slots. Here are some options:",
+                "total_available": len(filtered_slots),
+                "message": f"I have {len(slot_list)} available slots to show you. Here are the options:",
             }
 
         except Exception as e:
@@ -614,24 +654,6 @@ Remember: Your goal is to make appointment booking easy and pleasant for users."
         try:
             logger.info("Ending conversation and generating summary")
 
-            # Generate conversation summary using LLM
-            user_context = "was not identified"
-            if self.current_user:
-                user_id = (
-                    self.current_user.get("name")
-                    or self.current_user.get("contact_number")
-                    or "unknown"
-                )
-                user_context = f"identified as {user_id}"
-
-            summary_prompt = f"""Based on our conversation, create a brief summary (2-3 sentences) covering:
-- What the user wanted to accomplish
-- Any appointments booked, modified, or cancelled
-- Any preferences or notes mentioned
-
-Conversation context: User {user_context}
-"""
-
             # Get appointments discussed in this session
             appointments_discussed = []
             if self.current_user and self.current_user.get("contact_number"):
@@ -647,14 +669,51 @@ Conversation context: User {user_context}
                     for appt in recent_appointments[:3]  # Last 3 appointments
                 ]
 
-            # Simple summary (in production, you'd use the LLM to generate this)
-            summary = "Thank you for using our appointment booking service. "
+            # Generate conversation summary
+            user_name_display = "the user"
             if self.current_user:
-                user_name_display = self.current_user.get("name") or "you"
-                summary += f"We helped {user_name_display} "
-                if appointments_discussed:
-                    summary += f"manage {len(appointments_discussed)} appointment(s). "
+                user_name = self.current_user.get("name")
+                if user_name:
+                    user_name_display = user_name
+
+            # Build detailed summary based on appointments
+            summary = "Thank you for using our appointment booking service. "
+
+            if self.current_user:
+                # Count appointment types
+                active_appts = [
+                    a for a in appointments_discussed if a["status"] == "active"
+                ]
+                cancelled_appts = [
+                    a for a in appointments_discussed if a["status"] == "cancelled"
+                ]
+
+                if active_appts:
+                    # Format appointment details
+                    appt_count = len(active_appts)
+                    if appt_count == 1:
+                        appt = active_appts[0]
+                        from datetime import datetime
+
+                        try:
+                            date_obj = datetime.strptime(appt["date"], "%Y-%m-%d")
+                            time_obj = datetime.strptime(appt["time"], "%H:%M")
+                            formatted_date = date_obj.strftime("%A, %B %d, %Y")
+                            formatted_time = time_obj.strftime("%I:%M %p").lstrip("0")
+                            summary += f"We helped {user_name_display} book 1 appointment for {formatted_date} at {formatted_time}. "
+                        except:
+                            summary += (
+                                f"We helped {user_name_display} book 1 appointment. "
+                            )
+                    else:
+                        summary += f"We helped {user_name_display} manage {appt_count} appointment(s). "
+                elif cancelled_appts:
+                    summary += f"We helped {user_name_display} cancel {len(cancelled_appts)} appointment(s). "
+                else:
+                    summary += f"We assisted {user_name_display} with their appointment needs. "
+
             summary += "Have a great day!"
+            logger.info(f"Generated summary: {summary}")
 
             # Calculate costs (bonus feature)
             costs = calculate_costs(
@@ -745,7 +804,9 @@ async def my_agent(ctx: JobContext):
         "room": ctx.room.name,
     }
 
-    logger.info(f"Starting appointment assistant agent for room {ctx.room.name}")
+    logger.info(
+        f"🚀 Starting appointment assistant agent {AGENT_VERSION} for room {ctx.room.name}"
+    )
 
     # Set up voice AI pipeline
     session = AgentSession(
@@ -800,6 +861,13 @@ async def my_agent(ctx: JobContext):
     await ctx.connect()
 
     logger.info("Agent connected and ready")
+
+    # Greet the user when they join
+    await session.generate_reply(
+        instructions="""Greet the user warmly. Say something like: 
+        'Hello! I'm Alex, your appointment booking assistant. How can I help you today?'
+        Keep it natural, friendly, and conversational."""
+    )
 
 
 if __name__ == "__main__":
